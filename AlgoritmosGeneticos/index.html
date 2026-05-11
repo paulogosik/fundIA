@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Algoritmo Genético — Evolução de Strings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2330;
+    --border: #2a3140;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #7ee787;
+    --accent-2: #58a6ff;
+    --warn: #f0883e;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; min-height: 100vh; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 18px; }
+  header h1 { margin: 0; font-size: 26px; letter-spacing: -0.5px; }
+  header h1 .pill { background: var(--accent); color: #0d1117; padding: 2px 10px; border-radius: 6px; font-size: 14px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+  header .subtitle { color: var(--muted); font-size: 14px; }
+
+  .layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .panel h2 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field label .val { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+  .field input[type=range] { width: 100%; accent-color: var(--accent); }
+  .field input[type=text] { width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .field input[type=text]:focus { outline: none; border-color: var(--accent); }
+  .checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .checkbox input { accent-color: var(--accent); }
+
+  .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  button { background: var(--accent); color: #0d1117; border: none; padding: 10px 14px; border-radius: 6px; font-weight: 700; font-family: inherit; font-size: 14px; cursor: pointer; transition: filter 0.15s; }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.full { grid-column: span 2; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  .stat .num { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; margin-top: 4px; color: var(--accent); }
+  .stat.warn .num { color: var(--warn); }
+  .stat.info .num { color: var(--accent-2); }
+  .stat.muted .num { color: var(--text); }
+
+  .best-box { background: linear-gradient(135deg, #1a2332, #161b22); border: 1px solid var(--accent); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .best-box .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; }
+  .best-string { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; letter-spacing: 2px; }
+  .best-string .match { color: var(--accent); }
+  .best-string .miss { color: var(--bad); opacity: 0.7; }
+  .target-show { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--muted); margin-top: 8px; letter-spacing: 2px; }
+
+  .chart-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .chart-wrap h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
+  #chart { width: 100%; height: 180px; display: block; }
+
+  .pop-wrap { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .pop-wrap h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); display: flex; justify-content: space-between; }
+  .pop-wrap h3 span { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+  .pop-list { max-height: 280px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .pop-list::-webkit-scrollbar { width: 6px; }
+  .pop-list::-webkit-scrollbar-track { background: var(--panel-2); }
+  .pop-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .pop-row { display: flex; align-items: center; gap: 12px; padding: 5px 8px; border-radius: 4px; }
+  .pop-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
+  .pop-row .idx { color: var(--muted); width: 24px; text-align: right; font-size: 11px; }
+  .pop-row .seq { flex: 1; letter-spacing: 1px; }
+  .pop-row .seq .match { color: var(--accent); }
+  .pop-row .seq .miss { color: var(--muted); }
+  .pop-row .fit { color: var(--accent-2); width: 50px; text-align: right; font-weight: 700; }
+
+  .status { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; margin-left: 8px; }
+  .status.idle { background: var(--panel-2); color: var(--muted); }
+  .status.running { background: var(--accent); color: #0d1117; }
+  .status.done { background: var(--accent-2); color: #0d1117; }
+
+  footer { margin-top: 30px; text-align: center; color: var(--muted); font-size: 12px; }
+  footer code { background: var(--panel); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Algoritmo Genético <span class="pill">DEMO</span></h1>
+      <div class="subtitle">Evolução de uma população até atingir a string-alvo</div>
+    </div>
+    <div id="status" class="status idle">Pronto</div>
+  </header>
+
+  <div class="layout">
+    <!-- Panel de controles -->
+    <aside class="panel">
+      <h2>Parâmetros</h2>
+
+      <div class="field">
+        <label>String-alvo <span class="val" id="targetLen">20 chars</span></label>
+        <input type="text" id="target" value="Algoritmos Geneticos" maxlength="40" />
+      </div>
+
+      <div class="field">
+        <label>Tamanho da população <span class="val" id="popVal">200</span></label>
+        <input type="range" id="popSize" min="20" max="500" step="10" value="200" />
+      </div>
+
+      <div class="field">
+        <label>Taxa de mutação <span class="val" id="mutVal">3.0%</span></label>
+        <input type="range" id="mutRate" min="0" max="20" step="0.1" value="3" />
+      </div>
+
+      <div class="field">
+        <label>Tamanho do torneio <span class="val" id="tourVal">5</span></label>
+        <input type="range" id="tournament" min="2" max="10" step="1" value="5" />
+      </div>
+
+      <div class="field">
+        <label class="checkbox">
+          <input type="checkbox" id="elitism" checked />
+          Elitismo (preservar o melhor)
+        </label>
+      </div>
+
+      <div class="field">
+        <label>Velocidade (gerações/s) <span class="val" id="speedVal">30</span></label>
+        <input type="range" id="speed" min="1" max="120" step="1" value="30" />
+      </div>
+
+      <div class="buttons">
+        <button id="startBtn">▶ Iniciar</button>
+        <button id="pauseBtn" class="secondary" disabled>⏸ Pausar</button>
+        <button id="resetBtn" class="secondary full">↺ Reiniciar população</button>
+      </div>
+    </aside>
+
+    <!-- Display principal -->
+    <main>
+      <div class="stats">
+        <div class="stat"><div class="lbl">Geração</div><div class="num" id="genStat">0</div></div>
+        <div class="stat info"><div class="lbl">Melhor fitness</div><div class="num" id="bestStat">0</div></div>
+        <div class="stat warn"><div class="lbl">Média</div><div class="num" id="avgStat">0.0</div></div>
+        <div class="stat muted"><div class="lbl">Tempo</div><div class="num" id="timeStat">0.0s</div></div>
+      </div>
+
+      <div class="best-box">
+        <div class="lbl">Melhor indivíduo da geração atual</div>
+        <div class="best-string" id="bestString">—</div>
+        <div class="target-show">Alvo: <span id="targetShow">Algoritmos Geneticos</span></div>
+      </div>
+
+      <div class="chart-wrap">
+        <h3>Evolução do fitness ao longo das gerações</h3>
+        <canvas id="chart"></canvas>
+      </div>
+
+      <div class="pop-wrap">
+        <h3>População <span id="popLabel">(top 12)</span></h3>
+        <div class="pop-list" id="popList"></div>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    Algoritmo Genético clássico · seleção por torneio · cruzamento de 1 ponto · mutação bit-a-bit · <code>JS puro</code>
+  </footer>
+</div>
+
+<script>
+(() => {
+  // ============================================================
+  //  Algoritmo Genético — evolução de strings
+  // ============================================================
+
+  // Alfabeto: maiúsculas, minúsculas, espaço
+  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ";
+
+  const randChar = () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+  const randString = (n) => Array.from({length: n}, randChar).join("");
+
+  // Fitness = número de caracteres na posição correta
+  function fitness(ind, target) {
+    let s = 0;
+    for (let i = 0; i < target.length; i++) {
+      if (ind[i] === target[i]) s++;
+    }
+    return s;
+  }
+
+  // Seleção por torneio
+  function tournament(pop, fits, k) {
+    let best = -1, bestFit = -1;
+    for (let i = 0; i < k; i++) {
+      const idx = Math.floor(Math.random() * pop.length);
+      if (fits[idx] > bestFit) { bestFit = fits[idx]; best = idx; }
+    }
+    return pop[best];
+  }
+
+  // Cruzamento de 1 ponto
+  function crossover(a, b) {
+    const cp = Math.floor(Math.random() * a.length);
+    return [
+      a.slice(0, cp) + b.slice(cp),
+      b.slice(0, cp) + a.slice(cp)
+    ];
+  }
+
+  // Mutação bit-a-bit
+  function mutate(ind, rate) {
+    let arr = ind.split("");
+    for (let i = 0; i < arr.length; i++) {
+      if (Math.random() < rate) arr[i] = randChar();
+    }
+    return arr.join("");
+  }
+
+  // ============================================================
+  //  Estado e UI
+  // ============================================================
+  const state = {
+    target: "Algoritmos Geneticos",
+    popSize: 200,
+    mutRate: 0.03,
+    tournamentK: 5,
+    elitism: true,
+    speed: 30,
+    population: [],
+    fits: [],
+    generation: 0,
+    history: [],   // [{gen, best, avg}]
+    running: false,
+    startTime: 0,
+    timer: null,
+  };
+
+  // Elementos
+  const el = (id) => document.getElementById(id);
+  const targetInput = el("target");
+  const popSizeSlider = el("popSize");
+  const mutRateSlider = el("mutRate");
+  const tourSlider = el("tournament");
+  const speedSlider = el("speed");
+  const elitismChk = el("elitism");
+  const startBtn = el("startBtn");
+  const pauseBtn = el("pauseBtn");
+  const resetBtn = el("resetBtn");
+
+  // Bindings de display
+  function bindSlider(slider, valueEl, fmt) {
+    slider.addEventListener("input", () => valueEl.textContent = fmt(slider.value));
+  }
+  bindSlider(popSizeSlider, el("popVal"), v => v);
+  bindSlider(mutRateSlider, el("mutVal"), v => parseFloat(v).toFixed(1) + "%");
+  bindSlider(tourSlider, el("tourVal"), v => v);
+  bindSlider(speedSlider, el("speedVal"), v => v);
+  targetInput.addEventListener("input", () => {
+    el("targetLen").textContent = targetInput.value.length + " chars";
+    el("targetShow").textContent = targetInput.value;
+  });
+
+  // ============================================================
+  //  Inicializa população
+  // ============================================================
+  function initialize() {
+    state.target = targetInput.value || "Algoritmos Geneticos";
+    state.popSize = parseInt(popSizeSlider.value);
+    state.mutRate = parseFloat(mutRateSlider.value) / 100;
+    state.tournamentK = parseInt(tourSlider.value);
+    state.elitism = elitismChk.checked;
+    state.speed = parseInt(speedSlider.value);
+
+    state.population = [];
+    state.fits = [];
+    for (let i = 0; i < state.popSize; i++) {
+      const ind = randString(state.target.length);
+      state.population.push(ind);
+      state.fits.push(fitness(ind, state.target));
+    }
+    state.generation = 0;
+    state.history = [];
+    state.startTime = performance.now();
+    updateDisplay();
+    drawChart();
+  }
+
+  // ============================================================
+  //  Uma geração
+  // ============================================================
+  function step() {
+    const newPop = [];
+
+    // Elitismo: mantém o melhor
+    if (state.elitism) {
+      let bestIdx = 0;
+      for (let i = 1; i < state.population.length; i++) {
+        if (state.fits[i] > state.fits[bestIdx]) bestIdx = i;
+      }
+      newPop.push(state.population[bestIdx]);
+    }
+
+    // Gerar filhos
+    while (newPop.length < state.popSize) {
+      const p1 = tournament(state.population, state.fits, state.tournamentK);
+      const p2 = tournament(state.population, state.fits, state.tournamentK);
+      const [c1, c2] = crossover(p1, p2);
+      newPop.push(mutate(c1, state.mutRate));
+      if (newPop.length < state.popSize) newPop.push(mutate(c2, state.mutRate));
+    }
+
+    state.population = newPop;
+    state.fits = state.population.map(ind => fitness(ind, state.target));
+    state.generation++;
+  }
+
+  // ============================================================
+  //  Loop
+  // ============================================================
+  function tick() {
+    if (!state.running) return;
+
+    step();
+
+    const max = Math.max(...state.fits);
+    const avg = state.fits.reduce((a,b) => a+b, 0) / state.fits.length;
+    state.history.push({ gen: state.generation, best: max, avg });
+    if (state.history.length > 500) state.history.shift();
+
+    updateDisplay();
+    drawChart();
+
+    // Atingiu o alvo?
+    if (max === state.target.length) {
+      stop(true);
+      return;
+    }
+
+    const interval = 1000 / state.speed;
+    state.timer = setTimeout(tick, interval);
+  }
+
+  function start() {
+    if (state.population.length === 0) initialize();
+    state.running = true;
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    el("status").className = "status running";
+    el("status").textContent = "Evoluindo…";
+    tick();
+  }
+
+  function pause() {
+    state.running = false;
+    clearTimeout(state.timer);
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    el("status").className = "status idle";
+    el("status").textContent = "Pausado";
+    startBtn.textContent = "▶ Continuar";
+  }
+
+  function stop(success) {
+    state.running = false;
+    clearTimeout(state.timer);
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    if (success) {
+      el("status").className = "status done";
+      el("status").textContent = "✓ Convergiu!";
+      startBtn.textContent = "▶ Iniciar";
+    }
+  }
+
+  function reset() {
+    pause();
+    initialize();
+    startBtn.textContent = "▶ Iniciar";
+    el("status").className = "status idle";
+    el("status").textContent = "Pronto";
+  }
+
+  startBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", pause);
+  resetBtn.addEventListener("click", reset);
+
+  // ============================================================
+  //  Display
+  // ============================================================
+  function updateDisplay() {
+    const max = state.fits.length ? Math.max(...state.fits) : 0;
+    const avg = state.fits.length ? state.fits.reduce((a,b)=>a+b,0) / state.fits.length : 0;
+    el("genStat").textContent = state.generation;
+    el("bestStat").textContent = max + "/" + state.target.length;
+    el("avgStat").textContent = avg.toFixed(1);
+    el("timeStat").textContent = ((performance.now() - state.startTime) / 1000).toFixed(1) + "s";
+
+    // Melhor indivíduo
+    let bestIdx = 0;
+    for (let i = 1; i < state.fits.length; i++) {
+      if (state.fits[i] > state.fits[bestIdx]) bestIdx = i;
+    }
+    const bestStr = state.population[bestIdx] || "";
+    renderBestString(bestStr);
+
+    // Top 12 da população (ordenados)
+    const indexed = state.population.map((ind,i) => ({ ind, fit: state.fits[i] }));
+    indexed.sort((a,b) => b.fit - a.fit);
+    const top = indexed.slice(0, 12);
+    const popList = el("popList");
+    popList.innerHTML = "";
+    top.forEach((row, i) => {
+      const div = document.createElement("div");
+      div.className = "pop-row";
+      div.innerHTML = `<span class="idx">${i+1}</span><span class="seq">${colorize(row.ind, state.target)}</span><span class="fit">${row.fit}</span>`;
+      popList.appendChild(div);
+    });
+  }
+
+  function colorize(s, target) {
+    let out = "";
+    for (let i = 0; i < s.length; i++) {
+      const c = escapeHtml(s[i] || " ");
+      if (s[i] === target[i]) out += `<span class="match">${c}</span>`;
+      else out += `<span class="miss">${c}</span>`;
+    }
+    return out;
+  }
+  function escapeHtml(c) {
+    return c.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/ /g,'&nbsp;');
+  }
+
+  function renderBestString(s) {
+    const target = state.target;
+    const display = el("bestString");
+    let html = "";
+    for (let i = 0; i < target.length; i++) {
+      const c = (s[i] || " ").replace(/ /g, "·");
+      if (s[i] === target[i]) html += `<span class="match">${escapeHtml(c)}</span>`;
+      else html += `<span class="miss">${escapeHtml(c)}</span>`;
+    }
+    display.innerHTML = html;
+  }
+
+  // ============================================================
+  //  Chart (puro canvas, sem dependências)
+  // ============================================================
+  const canvas = el("chart");
+  const ctx = canvas.getContext("2d");
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = 180 * dpr;
+    ctx.scale(dpr, dpr);
+  }
+
+  function drawChart() {
+    const W = canvas.getBoundingClientRect().width;
+    const H = 180;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(1, 1);
+
+    if (state.history.length === 0) {
+      ctx.fillStyle = "#8b949e";
+      ctx.font = "13px 'Space Grotesk', sans-serif";
+      ctx.fillText("Sem dados ainda. Clique em Iniciar.", 20, H/2);
+      ctx.restore();
+      return;
+    }
+
+    const pad = { l: 36, r: 12, t: 12, b: 22 };
+    const cw = W - pad.l - pad.r;
+    const ch = H - pad.t - pad.b;
+    const maxFit = state.target.length;
+
+    // Grid horizontal
+    ctx.strokeStyle = "#2a3140";
+    ctx.lineWidth = 1;
+    ctx.font = "10px 'JetBrains Mono', monospace";
+    ctx.fillStyle = "#8b949e";
+    const ticks = 4;
+    for (let i = 0; i <= ticks; i++) {
+      const y = pad.t + ch * (i / ticks);
+      ctx.beginPath();
+      ctx.moveTo(pad.l, y);
+      ctx.lineTo(pad.l + cw, y);
+      ctx.stroke();
+      const val = Math.round(maxFit * (1 - i/ticks));
+      ctx.fillText(val.toString(), 4, y + 3);
+    }
+
+    const n = state.history.length;
+    const xOf = (i) => pad.l + (cw * i) / Math.max(n - 1, 1);
+    const yOf = (v) => pad.t + ch * (1 - v / maxFit);
+
+    // Avg
+    ctx.strokeStyle = "#f0883e";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    state.history.forEach((p, i) => {
+      const x = xOf(i), y = yOf(p.avg);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Best
+    ctx.strokeStyle = "#7ee787";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    state.history.forEach((p, i) => {
+      const x = xOf(i), y = yOf(p.best);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Legenda
+    ctx.font = "11px 'Space Grotesk', sans-serif";
+    ctx.fillStyle = "#7ee787";
+    ctx.fillText("● melhor", pad.l + 6, pad.t + 14);
+    ctx.fillStyle = "#f0883e";
+    ctx.fillText("● média", pad.l + 70, pad.t + 14);
+
+    // Eixo x label
+    ctx.fillStyle = "#8b949e";
+    ctx.fillText("geração " + state.history[state.history.length-1].gen, W - 90, H - 6);
+
+    ctx.restore();
+  }
+
+  // Init
+  window.addEventListener("resize", () => { resizeCanvas(); drawChart(); });
+  resizeCanvas();
+  initialize();
+})();
+</script>
+</body>
+</html>
